@@ -1,6 +1,5 @@
 package benchmark;
 
-import com.google.common.base.Joiner;
 import conflator.Conflator;
 import conflator.Message;
 import org.openjdk.jmh.annotations.*;
@@ -39,7 +38,6 @@ public class ConflatorBenchmark {
         // wait the receiver
         Map<String, Integer> wordsByCount = receiver.get();
 
-        System.out.println("Received messages by key:\n" + Joiner.on("\n").withKeyValueSeparator("-").join(wordsByCount));
     }
 
     @Setup

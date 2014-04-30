@@ -2,6 +2,7 @@ package conflator;
 
 import com.google.common.collect.ArrayListMultimap;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -85,31 +86,50 @@ public class Conflator {
      */
     public Message take() throws InterruptedException {
         // take the new key of the next message
-        String take = cursors.take();
+        String key = cursors.take();
         int size = 0; // number of message retrieving from {@link #data}
-        List<Message> message = null;
+        Message message = null; // the result message
         while (size == 0) {
             lock.lock();
-            message = data.removeAll(take); // remove messages from {@link #data}
+            List<Message> messagesInData = data.removeAll(key); // remove messages from {@link #data}
+            size = messagesInData.size(); // WARN the size could be 0 if the {@link #cursor} is updated before the update of {@link #data}. Should be very rare.
+            if (size == 0) continue;
+            List<Message> afterMergeMessages = merge(messagesInData);
+            message = afterMergeMessages.remove(0); // only the first one is a merged message
+            if (afterMergeMessages.size() > 0) {
+                // some unmerged messages remain so they are put again in data and queue
+                data.putAll(key, afterMergeMessages);
+                cursors.put(key);
+            }
             lock.unlock();
-            size = message.size(); // WARN the size could be 0 if the {@link #cursor} is updated before the update of {@link #data}. Should be very rare.
         }
-        return merge(message);
+        if (message == null) throw new IllegalStateException("Can't return a null message");
+        return message;
     }
 
     /**
-     * Merge the first element with all other from the list.
+     * Merge the n-th first mergeable elements and the ordered list of messages for the current key.
      *
-     * @param elements list of {@link Message} to merge
-     * @return the merged {@link Message}
+     * @param elements list of {@link conflator.Message} to merge
+     * @return the list of {@link Message}. The
      */
-    private Message merge(List<Message> elements) {
+    protected List<Message> merge(List<Message> elements) {
+        List<Message> messages = new ArrayList<>();
+
         Message first = null;
-        for (Message element : elements) {
-            if (first == null) first = element;
-            else first.merge(element);
+        boolean skip = false;
+        for (Message message : elements) {
+            if (first == null) {
+                first = message;
+                messages.add(message);
+            } else if (!skip && !first.merge(message)) {
+                messages.add(message);
+                skip = true;
+            } else if (skip) {
+                messages.add(message);
+            }
         }
-        return first;
+        return messages;
     }
 
     /**
