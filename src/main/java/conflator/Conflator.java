@@ -40,29 +40,44 @@ public class Conflator {
     private volatile boolean stopped = false;
 
     public Conflator() {
+        startConflationThread();
+    }
+
+    private void startConflationThread() {
         // Start a thread for taking message on queue and put it in data concurrently to user action
         new Thread(() -> {
             while (!stopped) {
                 try {
-                    Message d = queue.take();
-                    // lock for updating data
-                    lock.lock();
-                    List<Message> values = data.get(d.key());
-                    int size = values.size();
-                    if (size == 0) {
-                        // there is no message currently for this key, so we can update the cursor
-                        cursors.put(d.key());
-                    }
-                    // add the message to data
-                    values.add(d);
-                    lock.unlock();
-                    // end of data updating
+                    conflate();
                     sleep(pauseInMs);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
         }).start();
+    }
+
+    /**
+     * Take one message from input queue and insert it into the data map.
+     */
+    public void conflate() {
+        try {
+            Message d = queue.take();
+            // lock for updating data
+            lock.lock();
+            List<Message> values = data.get(d.key());
+            int size = values.size();
+            if (size == 0) {
+                // there is no message currently for this key, so we can update the cursor
+                cursors.put(d.key());
+            }
+            // add the message to data
+            values.add(d);
+            lock.unlock();
+            // end of data updating
+        } catch (InterruptedException ie) {
+            throw new RuntimeException(ie);
+        }
     }
 
     /**
