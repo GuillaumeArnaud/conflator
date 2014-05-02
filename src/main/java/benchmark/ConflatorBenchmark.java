@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class ConflatorBenchmark {
     Conflator conflator;
@@ -131,6 +131,7 @@ public class ConflatorBenchmark {
     }
 
     public static void main(String[] args) throws RunnerException {
+        System.out.println(".*" + ConflatorBenchmark.class.getSimpleName() + ".*");
         Options opt = new OptionsBuilder()
                 .include(".*" + ConflatorBenchmark.class.getSimpleName() + ".*")
                 .warmupIterations(5)
