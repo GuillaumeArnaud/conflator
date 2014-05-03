@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 
 public class MessageTest {
 
+    @Test
     public void should_valid_one_letter_message() {
         assertTrue(new SequentialCharacterMessage("key", "a").isValid());
     }
