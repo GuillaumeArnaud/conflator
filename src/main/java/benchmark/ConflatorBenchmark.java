@@ -2,6 +2,8 @@ package benchmark;
 
 import conflator.Conflator;
 import conflator.Message;
+import conflator.MultiValuedMapConflator;
+import conflator.SequentialCharacterMessage;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -42,7 +44,7 @@ public class ConflatorBenchmark {
 
     @Setup
     public void setUp() {
-        conflator = new Conflator();
+        conflator = new MultiValuedMapConflator(true);
     }
 
     /**
@@ -66,7 +68,7 @@ public class ConflatorBenchmark {
             for (int j = 0; j < wordTotal; j++)
                 // send the message '0123456789' letter by letter
                 for (int i = 0; i < 10; i++)
-                    conflator.put(new Message(key, String.valueOf(i)));
+                    conflator.put(new SequentialCharacterMessage(key, String.valueOf(i)));
             return true;
         }
     }
@@ -86,7 +88,6 @@ public class ConflatorBenchmark {
             this.conflator = conflator;
             this.wordTotal = wordTotal;
         }
-
 
         @Override
         public Map<String, Integer> call() throws Exception {

@@ -1,6 +1,5 @@
 package conflator;
 
-import com.google.common.collect.Lists;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,13 +17,13 @@ import static org.junit.Assert.*;
 @RunWith(JUnit4.class)
 public class ConflatorTest {
 
-    Conflator conflator;
+    Conflator<SequentialCharacterMessage> conflator;
     int currChar;
 
-    @Test
+    @Test(timeout = 1000)
     public void should_put_and_take() throws InterruptedException {
         // test
-        conflator.put(new Message("1", "a"));
+        conflator.put(new SequentialCharacterMessage("1", "a"));
         Message message = conflator.take();
 
         // check
@@ -32,11 +31,11 @@ public class ConflatorTest {
         assertEquals(message.body(), "a");
     }
 
-    @Test
+    @Test(timeout = 1000)
     public void should_merge_messages_on_same_key() throws InterruptedException {
         // given
-        conflator.put(new Message("1", "a"));
-        conflator.put(new Message("1", "b"));
+        conflator.put(new SequentialCharacterMessage("1", "a"));
+        conflator.put(new SequentialCharacterMessage("1", "b"));
 
         // test
         Thread.sleep(300); // waiting the conflation
@@ -48,12 +47,12 @@ public class ConflatorTest {
         assertTrue(message.isMerged());
     }
 
-    @Test
+    @Test(timeout = 1000)
     public void should_not_merge_messages_on_same_key_and_long_delay() throws InterruptedException {
         // given
         conflator.pause(500);
-        conflator.put(new Message("1", "a"));
-        conflator.put(new Message("1", "b"));
+        conflator.put(new SequentialCharacterMessage("1", "a"));
+        conflator.put(new SequentialCharacterMessage("1", "b"));
 
         // test
         Message message1 = conflator.take();
@@ -69,11 +68,11 @@ public class ConflatorTest {
         assertEquals(message2.isMerged(), false);
     }
 
-    @Test
+    @Test(timeout = 1000)
     public void should_put_and_take_on_two_keys() throws InterruptedException {
         // given
-        conflator.put(new Message("1", "a"));
-        conflator.put(new Message("2", "A"));
+        conflator.put(new SequentialCharacterMessage("1", "a"));
+        conflator.put(new SequentialCharacterMessage("2", "A"));
 
         // test
         Message message1 = conflator.take();
@@ -84,35 +83,6 @@ public class ConflatorTest {
         assertEquals(message1.body(), "a");
         assertNotNull(message2);
         assertEquals(message2.body(), "A");
-    }
-
-    @Test
-    public void two_unmergeable_messages_should_be_remain_unmergeable() {
-        Message message1 = new Message("key", "a");
-        Message message2 = new Message("key", "b");
-        Message message3 = new Message("key", "d");
-        Message message4 = new Message("key", "e");
-
-        List<Message> messages = conflator.merge(Lists.newArrayList(message1, message2, message3, message4));
-
-        assertNotNull(messages);
-        assertEquals(messages.size(), 3);
-        assertEquals(messages.get(0).body(), "ab");
-        assertEquals(messages.get(1).body(), "d");
-        assertEquals(messages.get(2).body(), "e");
-    }
-
-    @Test
-    public void two_mergeable_messages_should_be_merged() {
-        Message message1 = new Message("key", "a");
-        Message message2 = new Message("key", "b");
-
-        List<Message> messages = conflator.merge(Lists.newArrayList(message1, message2));
-
-        assertNotNull(messages);
-        assertEquals(messages.size(), 1);
-        assertEquals(messages.get(0).body(), "ab");
-
     }
 
     @Test
@@ -163,10 +133,9 @@ public class ConflatorTest {
         return result;
     }
 
-
     @Before
     public void setUp() {
-        conflator = new Conflator();
+        conflator = new MultiValuedMapConflator<>(true);
     }
 
     @After
@@ -179,7 +148,7 @@ public class ConflatorTest {
      */
     class Sender implements Callable<Boolean> {
 
-        private Conflator conflator;
+        private Conflator<SequentialCharacterMessage> conflator;
         private String key;
         private int msgCount;
 
@@ -189,7 +158,7 @@ public class ConflatorTest {
             boolean result = false;
             for (int j = 0; j < msgCount; j++) {
                 try {
-                    conflator.put(new Message(key, generator()));
+                    conflator.put(new SequentialCharacterMessage(key, generator()));
                     result = true;
                 } catch (Exception e) {
                     e.fillInStackTrace();
@@ -198,7 +167,7 @@ public class ConflatorTest {
             return result;
         }
 
-        Sender(Conflator conflator, String key, int msgCount) {
+        Sender(Conflator<SequentialCharacterMessage> conflator, String key, int msgCount) {
             this.conflator = conflator;
             this.key = key;
             this.msgCount = msgCount;
