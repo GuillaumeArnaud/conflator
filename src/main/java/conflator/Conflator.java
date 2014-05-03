@@ -19,17 +19,15 @@ public interface Conflator<M extends Message<M>> {
      * Put the message into the conflator.
      *
      * @param message message to send
-     * @throws InterruptedException
      */
-    void put(M message) throws InterruptedException;
+    void put(M message);
 
     /**
      * Take message synchronously from the conflator.
      *
      * @return {@link Message} containing the merge of last messages for a given key
-     * @throws InterruptedException
      */
-    M take() throws InterruptedException;
+    M take();
 
     /**
      * Stop the background thread.

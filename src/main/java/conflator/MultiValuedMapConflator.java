@@ -5,7 +5,6 @@ import com.google.common.collect.ArrayListMultimap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -29,7 +28,7 @@ public class MultiValuedMapConflator<M extends Message<M>> implements Conflator<
     /**
      * The blocking queue which receives message from external and before the dispatch to {@link #data}.
      */
-    private BlockingQueue<M> queue = new LinkedBlockingDeque<>();
+    private BlockingQueue<M> queue = new LinkedBlockingQueue<>();
 
     /**
      * Lock for accessing to {@link #data}.
@@ -100,32 +99,39 @@ public class MultiValuedMapConflator<M extends Message<M>> implements Conflator<
     }
 
     @Override
-    public void put(M message) throws InterruptedException {
-        queue.put(message);
+    public void put(M message) {
+        try {
+            queue.put(message);
+        } catch (InterruptedException ie) {
+            throw new RuntimeException(ie);
+        }
 
     }
 
 
-
     @Override
-    public M take() throws InterruptedException {
-        // take the new key of the next message
-        String key = cursors.take();
-        int size = 0; // number of message retrieving from {@link #data}
-        M message = null; // the result message
-        while (size == 0) {
-            lock.lock();
-            List<M> messagesInData = data.removeAll(key); // remove messages from {@link #data}
-            size = messagesInData.size(); // WARN the size could be 0 if the {@link #cursor} is updated before the update of {@link #data}. Should be very rare.
-            if (size == 0) continue;
-            List<M> afterMergeMessages = merge(messagesInData);
-            message = afterMergeMessages.remove(0); // only the first one is a merged message
-            if (afterMergeMessages.size() > 0) {
-                // some unmerged messages remain so they are put again in data and queue
-                data.putAll(key, afterMergeMessages);
-                cursors.put(key);
+    public M take() {
+        M message = null; // the returned message
+        try {
+            // take the new key of the next message
+            String key = cursors.take();
+            int size = 0; // number of message retrieving from {@link #data}
+            while (size == 0) {
+                lock.lock();
+                List<M> messagesInData = data.removeAll(key); // remove messages from {@link #data}
+                size = messagesInData.size(); // WARN the size could be 0 if the {@link #cursor} is updated before the update of {@link #data}. Should be very rare.
+                if (size == 0) continue;
+                List<M> afterMergeMessages = merge(messagesInData);
+                message = afterMergeMessages.remove(0); // only the first one is a merged message
+                if (afterMergeMessages.size() > 0) {
+                    // some unmerged messages remain so they are put again in data and queue
+                    data.putAll(key, afterMergeMessages);
+                    cursors.put(key);
+                }
+                lock.unlock();
             }
-            lock.unlock();
+        } catch (InterruptedException ie) {
+            throw new RuntimeException(ie);
         }
         if (message == null) throw new IllegalStateException("Can't return a null message");
         return message;

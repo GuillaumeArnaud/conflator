@@ -1,7 +1,6 @@
 package benchmark;
 
 import conflator.Conflator;
-import conflator.Message;
 import conflator.MultiValuedMapConflator;
 import conflator.SequentialCharacterMessage;
 import org.openjdk.jmh.annotations.*;
@@ -11,124 +10,61 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
-@BenchmarkMode(Mode.AverageTime)
+@BenchmarkMode(Mode.All)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class ConflatorBenchmark {
-    Conflator conflator;
+    Conflator<SequentialCharacterMessage> conflator;
+    int currChar;
+    LinkedBlockingQueue<SequentialCharacterMessage> queue;
 
     @GenerateMicroBenchmark
-    public void should_receive_100_000_msgs_sent_on_10_threads() throws ExecutionException, InterruptedException {
-        // given
-        ExecutorService executorService = Executors.newFixedThreadPool(11);
-        List<Future<Boolean>> senders = new ArrayList<>();
-
-        // test
-        Future<Map<String, Integer>> receiver = executorService.submit(new Receiver(conflator, 10 * 10_000));
-        for (int i = 0; i < 10; i++) {
-            senders.add(executorService.submit(new Sender(conflator, "key" + i, 10_000)));
+    public void put_and_take_100_000_msgs() {
+        conflator.daemonize();
+        for (int i = 0; i < 100_000; i++) {
+            conflator.put(new SequentialCharacterMessage("key", generator()));
+            SequentialCharacterMessage message = conflator.take();
+            assert message != null;
+            assert message.isValid();
         }
-        for (Future future : senders) {
-            future.get();
-        }
-        // wait the receiver
-        Map<String, Integer> wordsByCount = receiver.get();
+    }
 
+    @GenerateMicroBenchmark
+    public void put_and_take_100_000_msgs_on_blocking_queue() throws InterruptedException {
+        conflator.daemonize();
+        for (int i = 0; i < 100_000; i++) {
+            queue.put(new SequentialCharacterMessage("key", generator()));
+            SequentialCharacterMessage message = queue.take();
+            assert message != null;
+            assert message.isValid();
+        }
+    }
+
+    private synchronized String generator() {
+        String result = String.valueOf(currChar++);
+        if (currChar > 9) currChar = 0;
+        return result;
     }
 
     @Setup
     public void setUp() {
-        conflator = new MultiValuedMapConflator(true);
-    }
+        // simple queue to compare
+        queue = new LinkedBlockingQueue<>();
 
-    /**
-     * Send sequentially the messages '0123456789', letter by letter (so 10 messages).
-     */
-    class Sender implements Callable<Boolean> {
+        // create conflator but with the daemonized conflation
+        conflator = new MultiValuedMapConflator<>(false);
 
-        private Conflator conflator;
-        private String key;
-        private int wordTotal;
-
-
-        Sender(Conflator conflator, String key, int wordTotal) {
-            this.conflator = conflator;
-            this.key = key;
-            this.wordTotal = wordTotal;
+        // Pre-fill of the conflator
+        for (int i = 0; i < 100_00; i++) {
+            SequentialCharacterMessage message = new SequentialCharacterMessage("key", generator());
+            conflator.put(message);
+            queue.add(message);
         }
 
-        @Override
-        public Boolean call() throws Exception {
-            for (int j = 0; j < wordTotal; j++)
-                // send the message '0123456789' letter by letter
-                for (int i = 0; i < 10; i++)
-                    conflator.put(new SequentialCharacterMessage(key, String.valueOf(i)));
-            return true;
-        }
-    }
-
-    /**
-     * Receive messages from conflator and return a counter by key
-     */
-    class Receiver implements Callable<Map<String, Integer>> {
-
-        private Conflator conflator;
-        /**
-         * Total number of expected words
-         */
-        private int wordTotal;
-
-        Receiver(Conflator conflator, int wordTotal) {
-            this.conflator = conflator;
-            this.wordTotal = wordTotal;
-        }
-
-        @Override
-        public Map<String, Integer> call() throws Exception {
-            Map<String, Integer> wordsByKey = new HashMap<>();
-            Map<String, String> msgByKey = new HashMap<>();
-            int total = 0;
-            while (total < wordTotal) {
-
-                // take last message in conflator
-                Message msg = conflator.take();
-                String keyMsg = msg.key(); // the concerned key
-
-                // init current store map for the key
-                if (!msgByKey.containsKey(keyMsg)) msgByKey.put(keyMsg, "");
-
-                // add new body to the current store map for the given key
-                msgByKey.put(keyMsg, msgByKey.get(keyMsg) + msg.body());
-
-                String body = msgByKey.get(keyMsg);
-                while (body.length() >= 10) {
-                    // the current store word contains the searched word '0123456789'
-
-                    // check that contains the right word
-                    String word = body.substring(0, 10);
-
-                    // it's ok so let's increase counters
-                    if (!wordsByKey.containsKey(keyMsg)) wordsByKey.put(keyMsg, 1);
-                    else wordsByKey.put(keyMsg, wordsByKey.get(keyMsg) + 1);
-
-                    // update the current word by removing the starting word
-                    String newBody = body.substring(10, body.length());
-                    msgByKey.put(keyMsg, newBody);
-                    body = msgByKey.get(keyMsg);
-                }
-                total = 0;
-                for (Integer c : wordsByKey.values()) {
-                    total += c;
-                }
-            }
-            return wordsByKey;
-        }
     }
 
     public static void main(String[] args) throws RunnerException {
