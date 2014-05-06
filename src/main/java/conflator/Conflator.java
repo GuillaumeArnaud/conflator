@@ -47,4 +47,11 @@ public interface Conflator<M extends Message<M>> {
      * @param pauseInMs pause in milliseconds
      */
     void pause(long pauseInMs);
+
+    /**
+     * Total of messages inside the conflator. This method could be blocking if needs in order to rightly count the
+     * number of messages.
+     * @return the total number of messages
+     */
+    long size();
 }

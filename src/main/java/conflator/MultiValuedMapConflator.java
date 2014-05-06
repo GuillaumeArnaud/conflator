@@ -75,14 +75,14 @@ public class MultiValuedMapConflator<M extends Message<M>> implements Conflator<
             M receivedMessage = queue.take();
             // lock for updating data
             lock.lock();
-            List<M> messages = data.get(receivedMessage.key());
-            int size = messages.size();
+            List<M> messagesForAKey = data.get(receivedMessage.key());
+            int size = messagesForAKey.size();
             if (size == 0) {
                 // there is no message currently for this key, so we can update the cursor
                 cursors.put(receivedMessage.key());
             }
             // add the message to data
-            messages.add(receivedMessage);
+            messagesForAKey.add(receivedMessage);
             lock.unlock();
             // end of data updating
         } catch (InterruptedException ie) {
@@ -170,6 +170,11 @@ public class MultiValuedMapConflator<M extends Message<M>> implements Conflator<
     @Override
     public void pause(long pauseInMs) {
         this.pauseInMs = pauseInMs;
+    }
+
+    @Override
+    public long size() {
+        return queue.size() + data.size();
     }
 
     @Override
