@@ -110,6 +110,7 @@ public class ConflatorTest {
             counters.put("key" + i, 0l);
         }
         while (counter < totalMsgCount * differentKeyCount) {
+            System.out.println("size= " + conflator.size());
             Message message = conflator.take();
             mergeCounter += message.mergesCount();
             long oldCount = counters.get(message.key());
@@ -123,6 +124,26 @@ public class ConflatorTest {
         }
         assertTrue(mergeCounter > 0);
         System.out.println("merges : " + mergeCounter);
+    }
+
+    @Test
+    public void should_conflate_all_messages() {
+        // given
+        conflator.stop();
+        for (int i = 0; i < 10_000; i++) {
+            conflator.put(new SequentialCharacterMessage("key", generator()));
+        }
+
+        // test
+        for (int i = 0; i < 10; i++) {
+            conflator.conflate(1000);
+        }
+        SequentialCharacterMessage message = conflator.take();
+
+        // check
+        assertEquals(0, conflator.size());
+        assertNotNull(message);
+        assertEquals(message.body().length(), 10_000);
     }
 
     //// Methods for the tests

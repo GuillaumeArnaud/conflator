@@ -5,6 +5,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -15,10 +16,10 @@ public class MultiValuedMapConflatorTest {
 
     @Test(timeout = 1000)
     public void two_unmergeable_messages_should_be_remain_unmergeable() {
-        Message message1 = new SequentialCharacterMessage("key", "a");
-        Message message2 = new SequentialCharacterMessage("key", "b");
-        Message message3 = new SequentialCharacterMessage("key", "d");
-        Message message4 = new SequentialCharacterMessage("key", "e");
+        SequentialCharacterMessage message1 = new SequentialCharacterMessage("key", "a");
+        SequentialCharacterMessage message2 = new SequentialCharacterMessage("key", "b");
+        SequentialCharacterMessage message3 = new SequentialCharacterMessage("key", "d");
+        SequentialCharacterMessage message4 = new SequentialCharacterMessage("key", "e");
 
 
         List<SequentialCharacterMessage> messages = conflator.merge(Lists.newArrayList(message1, message2, message3, message4));
@@ -32,8 +33,8 @@ public class MultiValuedMapConflatorTest {
 
     @Test(timeout = 1000)
     public void two_mergeable_messages_should_be_merged() {
-        Message message1 = new SequentialCharacterMessage("key", "a");
-        Message message2 = new SequentialCharacterMessage("key", "b");
+        SequentialCharacterMessage message1 = new SequentialCharacterMessage("key", "a");
+        SequentialCharacterMessage message2 = new SequentialCharacterMessage("key", "b");
 
         List<Message> messages = conflator.merge(Lists.newArrayList(message1, message2));
 
