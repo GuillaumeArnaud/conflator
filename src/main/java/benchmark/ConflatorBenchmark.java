@@ -1,6 +1,5 @@
 package benchmark;
 
-import conflator.Conflator;
 import conflator.MultiValuedMapConflator;
 import conflator.SequentialCharacterMessage;
 import org.openjdk.jmh.annotations.*;
@@ -13,28 +12,29 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-@BenchmarkMode(Mode.All)
+@BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class ConflatorBenchmark {
-    Conflator<SequentialCharacterMessage> conflator;
+    MultiValuedMapConflator<SequentialCharacterMessage> multiValuedMapConflator;
     int currChar;
     LinkedBlockingQueue<SequentialCharacterMessage> queue;
 
     @GenerateMicroBenchmark
-    public void put_and_take_100_000_msgs() {
-        conflator.daemonize();
+    public void put_and_take_100_000_msgs_on_multivalued_map_conflator() {
+        multiValuedMapConflator.daemonize();
         for (int i = 0; i < 100_000; i++) {
-            conflator.put(new SequentialCharacterMessage("key", generator()));
-            SequentialCharacterMessage message = conflator.take();
+            multiValuedMapConflator.put(new SequentialCharacterMessage("key", generator()));
+            SequentialCharacterMessage message = multiValuedMapConflator.take();
             assert message != null;
             assert message.isValid();
         }
     }
 
+    // This test is used as a reference time for other implementation
     @GenerateMicroBenchmark
     public void put_and_take_100_000_msgs_on_blocking_queue() throws InterruptedException {
-        conflator.daemonize();
+        multiValuedMapConflator.daemonize();
         for (int i = 0; i < 100_000; i++) {
             queue.put(new SequentialCharacterMessage("key", generator()));
             SequentialCharacterMessage message = queue.take();
@@ -51,16 +51,17 @@ public class ConflatorBenchmark {
 
     @Setup
     public void setUp() {
+        System.out.println("setup");
         // simple queue to compare
         queue = new LinkedBlockingQueue<>();
 
         // create conflator but with the daemonized conflation
-        conflator = new MultiValuedMapConflator<>(false);
+        multiValuedMapConflator = new MultiValuedMapConflator<>(false);
 
         // Pre-fill of the conflator
-        for (int i = 0; i < 100_00; i++) {
+        for (int i = 0; i < 1_000_000; i++) {
             SequentialCharacterMessage message = new SequentialCharacterMessage("key", generator());
-            conflator.put(message);
+            multiValuedMapConflator.put(message);
             queue.add(message);
         }
 
