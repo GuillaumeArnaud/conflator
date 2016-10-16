@@ -22,7 +22,7 @@ public class TradeMergeTest {
         assertNotNull(messages);
         assertEquals(messages.size(), 2);
         assertEquals(Long.valueOf(messages.get(0).body()).longValue(), trade1.getCurrentQuantity());
-        assertEquals(Long.valueOf(messages.get(1).body()).longValue(), trade2.getCurrentQuantity());
+        assertEquals(Long.valueOf(mes   sages.get(1).body()).longValue(), trade2.getCurrentQuantity());
     }
 
     @Test(timeout = 1000)
